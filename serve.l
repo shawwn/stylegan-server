@@ -25,7 +25,7 @@
   r)
 
 (def max-id ()
-  (r.incrby "maxId" 0))
+  (r.incrby "max_id" 0))
   
 (def load-item (id)
   (if (has? items* id)
@@ -172,6 +172,12 @@
 
 (def read-op (i)
   (maptree read-image read-safe (ivar i op)))
+
+(def save-item (tem)
+  (let id (or (has tem 'id) (r.incrby "maxId" 1))
+    (set (get tem 'id) id)
+    (r.set (cat "item?id=" (tostr id)) (json.dumps tem))
+    id))
 
 (import os)
 (import sys)
