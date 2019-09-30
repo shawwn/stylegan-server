@@ -308,13 +308,14 @@
         (set (get results* id) (eval op))))))
 
 (def process-on-error (i c)
-  (|print| (list "Error: " c))
-  (unless (r*.get (cat id "_faces:result"))
-    (let-when img (PIL.Image.new size: '(16 16) mode: "RGB" color: "black")
-      (r*.set (cat id "_faces:result") (image-to-bytes img))))
-  (let-when cb (item i 'callback)
-    (print (cat "Pinging " cb))
-    (urlbytes cb)))
+  (let id (item i 'id)
+    (|print| (cat id " ERROR:" (repr c)))
+    (unless (r*.get (cat id "_faces:result"))
+      (let-when img (PIL.Image.new size: '(16 16) mode: "RGB" color: "black")
+        (r*.set (cat id "_faces:result") (image-to-bytes img))))
+    (let-when cb (item i 'callback)
+      (print (cat "Pinging " cb))
+      (urlbytes cb))))
 
 (def process-items ()
   (for-each-item i
