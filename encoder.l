@@ -211,7 +211,7 @@
 (def latent-image (url)
   (let-when bs (get-url-key url 'latent)
     (return (obj-from-bytes bs)))
-  (let-when img (aligned-image (url-image url))
+  (let-when img (aligned-image url)
     (let-when latent (make-latent-image img)
       (let-when bs (obj-to-bytes latent)
         (put-url-key url 'latent bs))
