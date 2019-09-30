@@ -59,7 +59,7 @@
     (with r (json.loads x)
       (set (get r 'id) id))))
 
-(defconst items* (obj))
+(defvar items* (obj))
 
 (def item (id rest: ks)
   (if (obj? id) (set id (has id 'id)))
