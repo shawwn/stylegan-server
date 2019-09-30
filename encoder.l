@@ -283,8 +283,8 @@
   (let (id (item i 'id)
         k (cat id "_faces:result"))
     (unless (r*.keys k)
-      (print (cat "Processing " k))
       (let-when op (read-op i)
+        (print (cat "Processing " k ": " (str (expand op))))
         (set (get ops* id) op)
         (set (get results* id) (eval op))))))
 
