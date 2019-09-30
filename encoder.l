@@ -251,10 +251,10 @@
 
 (def process-image (latent id)
   (print (cat id ": Generating image from " (repr latent)))
-  (let img (gen-image latent)
+  (let-when img (gen-image latent)
     (print (cat id ": Generated image"))
     (print img)
-    (r*.set (cat id "_faces:result" (image-to-bytes img)))
+    (r*.set (cat id "_faces:result") (image-to-bytes img))
     (display (img.resize (list 256 256)))))
 
 (def eval-image (url)
