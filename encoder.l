@@ -89,7 +89,7 @@
         h (hashlib.md5 s))
     (h.hexdigest)))
   
-(defvar encoder-cache-dir* "/tmp/cache")
+(defvar encoder-cache-dir* (if (os.path.isdir "/drive") "/drive/stylegan-server-cache" "/tmp/cache"))
 (defvar encoder-open-url-verbose* false)
 
 (os.makedirs encoder-cache-dir* exist_ok: true)
