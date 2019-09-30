@@ -34,3 +34,14 @@ def load_latent(fname):
     rep = np.load(fname)
     return np.expand_dims(rep, axis=0)
 
+if __name__ == '__main__':
+    import sys
+    latent=np.array(json.loads(sys.argv[1]))
+    print(repr(latent))
+    img = generate_image(latent)
+    with tempfile.TemporaryDirectory() as d:
+        fname=os.path.join(d, "image.jpg")
+        img.save(fname, "JPEG")
+        with open(fname, "rb") as f:
+            imgbytes = f.read()
+    print("Generated {} bytes".format(len(imgbytes)))
