@@ -103,14 +103,16 @@
 
 (def urlbytes (url)
   (let-when r (requests.get url)
-    (to-bytes r.content)))
+    (when (= r.status 200)
+      (to-bytes r.content))))
 
 ;(def urlbytes (url)
 ; (with (open-url url) as f
 ;   (to-bytes (f.read))))
 
 (def hash-url (url)
-  (shash (urlbytes url)))
+  (let bs (urlbytes url)
+    (if (is? bs) (shash bs) (error (cat "Couldn't fetch url " url)))))
 
 (def todisk (fname value)
   (if (nil? value)
@@ -157,7 +159,8 @@
         (f.read)))))
 
 (def url-image (url)
-  (PIL.Image.open (BytesIO (urlbytes url))))
+  (let-when bs (urlbytes url)
+    (PIL.Image.open (BytesIO bs))))
 
 (import scrap)
 
@@ -166,7 +169,7 @@
 (def align-image (url)
   (with-temp-dir aligned-src-dir
     (with-temp-dir aligned-dst-dir
-      (let img (url-image url)
+      (let-when img (url-image url)
         (set img (img.convert "RGB"))
         (img.save (p aligned-src-dir "image.jpg") "JPEG")
         (scrap.system "python3" (list "align_images.py" aligned-src-dir aligned-dst-dir))
