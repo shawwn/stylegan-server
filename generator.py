@@ -48,4 +48,5 @@ if __name__ == '__main__':
         img.save(fname, "JPEG")
         with open(fname, "rb") as f:
             imgbytes = f.read()
-    print("Generated {} bytes".format(len(imgbytes)))
+    #print("Generated {} bytes".format(len(imgbytes)))
+    sys.stdout.write(imgbytes)
