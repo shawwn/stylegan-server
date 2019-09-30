@@ -253,9 +253,9 @@
   (print (cat id ": Generating image from " (repr latent)))
   (let img (gen-image latent)
     (print (cat id ": Generated image"))
-    ;(r*.set (cat id "_faces:result" (image-to-bytes img)))
     (print img)
-    (display img)))
+    (r*.set (cat id "_faces:result" (image-to-bytes img)))
+    (display (img.resize (list 256 256)))))
 
 (def eval-image (url)
   (print (cat "Evaluating image " url))
