@@ -103,7 +103,7 @@
 
 (def urlbytes (url)
   (let-when r (requests.get url)
-    (when (= r.status 200)
+    (when (= r.status-code 200)
       (to-bytes r.content))))
 
 ;(def urlbytes (url)
