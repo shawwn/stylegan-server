@@ -4,6 +4,24 @@
 (import redis)
 (from urllib.parse import urlparse)
 
+(mac + args
+  (if (none? args)
+      (list 'quote 0)
+      (one? args)
+      (hd args)
+    `((do +) ,@args)))
+
+(mac * args
+  (if (none? args)
+      (list 'quote 1)
+      (one? args)
+      (hd args)
+    `((do *) ,@args)))
+
+(mac errsafe (expr)
+  `(on-err (fn (c) nil)
+           (fn () ,expr)))
+
 (def idfn (x) x)
 
 (def hd? (l x)
@@ -28,10 +46,6 @@
 (def on-err (handler thunk)
   (let ((ok v) (guard (thunk)))
     (if ok v (handler v))))
-
-(mac errsafe (expr)
-  `(on-err (fn (c) nil)
-           (fn () ,expr)))
 
 (def make-redis (url)
   (let (url (or url (get os.environ "REDIS_URL"))
@@ -189,25 +203,56 @@
           (img.save (p latent-src-dir "image.jpg") "JPEG")
           (scrap.system "python3" (list "encode_images.py" latent-src-dir latent-generated-dir latent-dst-dir))
           (let-when latent-fname (hd (glob (p latent-dst-dir "*")))
-            (np.load latent-fname)))))))
+            (|np.load| latent-fname)))))))
 
 (def latent-image (url)
   (let-when bs (get-url-key url 'latent)
     (return (obj-from-bytes bs)))
-  (let-when latent (make-latent-image url)
-    (let-when bs (obj-to-bytes latent)
-      (put-url-key url 'latent bs))
-    latent))
+  (let-when img (url-image url)
+    (let-when latent (make-latent-image img)
+      (let-when bs (obj-to-bytes latent)
+        (put-url-key url 'latent bs))
+      latent)))
 
 (def read-image (l)
   (if (hd? l 'image)
       (let url (at l 1)
-        (let-when latent (latent-image url)
-          (list 'latent latent)))
+        (let latent (latent-image url)
+          (if latent
+              (list '|np.array| (list 'quote (latent.tolist)))
+            (list '|np.array| ()))))
     l))
 
+(import reader)
+
+(def read-safe (s)
+  (if (string? s)
+      (either (reader.maybe-number s) s)
+    s))
+
+(from importlib import reload)
+
+(def generate-image (latent id)
+  (print (cat id ": Generating image from " (repr latent)))
+  (import generator)
+  (reload generator)
+  (let img (generator.generate_image latent)
+    (print (cat id ": Generated image"))
+    (r*.set (cat id "_faces:result" (image-to-bytes img)))
+    (print img)))
+
+(def eval-image (url)
+  (print (cat "Evaluating image " url))
+  (np.array ()))
+
+(mac image (url)
+  `(eval-image ',url))
+
+(def item-op (i)
+  `(generate-image ,(maptree idfn read-safe (item i 'op)) ',(item i 'id)))
+
 (def read-op (i)
-  (maptree read-image idfn (item i op)))
+  (item-op i))
 
 (def gather-urls (i)
   (let-when op (item i 'op)
@@ -229,11 +274,12 @@
   (with r ()
     (for-each-item i (add r i))))
 
-(defvar ops* (obj))
-(defvar results* (obj))
+(defconst ops* (obj))
+(defconst results* (obj))
 
 (def process-item (i)
-  (let k (cat (item i 'id) "_faces:result")
+  (let (id (item i 'id)
+        k (cat id "_faces:result"))
     (unless (r*.keys k)
       (print (cat "Processing " k))
       (let-when op (read-op i)
@@ -242,4 +288,5 @@
 
 (def process-items ()
   (for-each-item i
-    (errsafe (process-item i))))
+    (on-err (fn (c) (|print| (list "Error: " c)))
+            (fn () (process-item i)))))
