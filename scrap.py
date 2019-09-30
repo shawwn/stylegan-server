@@ -333,6 +333,8 @@ command=cmd
 
 def _stdin(stdin):
     if type(stdin) is str:
+        stdin = stdin.encode('utf-8')
+    if type(stdin) is bytes:
         return subprocess.PIPE, stdin
     else:
         return stdin, None
