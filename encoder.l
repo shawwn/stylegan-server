@@ -92,6 +92,8 @@
 (defvar encoder-cache-dir* "/tmp/cache")
 (defvar encoder-open-url-verbose* false)
 
+(os.makedirs encoder-cache-dir* exist_ok: true)
+
 (import dnnlib)
 
 (def open-url (url)
@@ -113,7 +115,8 @@
 (def todisk (fname value)
   (if (nil? value)
       (errsafe (os.remove fname))
-    (do (with (open (cat fname ".tmp") "wb") as f
+    (do (os.makedirs (os.path.dirname fname) exist_ok: true)
+        (with (open (cat fname ".tmp") "wb") as f
           (f.write (to-bytes value)))
         (os.rename (cat fname ".tmp") fname))))
 
