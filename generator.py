@@ -49,4 +49,4 @@ if __name__ == '__main__':
         with open(fname, "rb") as f:
             imgbytes = f.read()
     #print("Generated {} bytes".format(len(imgbytes)))
-    sys.stdout.write(imgbytes)
+    sys.stdout.buffer.write(imgbytes)
