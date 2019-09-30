@@ -245,6 +245,9 @@
     (let-when img (image-from-bytes img-result)
       img)))
 
+(def urlpost (url data)
+  (requests.post url: url data: (to-bytes (or data ""))))
+
 (def gen-image (latent)
   (import generator)
   (generator.generate-image latent))
@@ -257,7 +260,7 @@
     (r*.set (cat id "_faces:result") (image-to-bytes img))
     (let-when cb (item id 'callback)
       (print (cat "Pinging " cb))
-      (urlbytes cb))
+      (urlpost cb 'ok))
     (display (img.resize (list 256 256)))
     'ok))
 
@@ -315,9 +318,11 @@
         (r*.set (cat id "_faces:result") (image-to-bytes img))))
     (let-when cb (item i 'callback)
       (print (cat "Pinging " cb))
-      (urlbytes cb))))
+      (urlpost cb 'error))))
 
 (def process-items ()
+  (os.system "git pull")
+  (load "encoder.l")
   (for-each-item i
     (on-err (fn (c) (process-on-error i c))
             (fn () (process-item i)))))
