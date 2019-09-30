@@ -76,8 +76,8 @@
 (mac for-each-item (i rest: body)
   (let-unique (n)
     `(let ,n (maxid)
-       (for id ,n
-         (let-when ,i (item id)
+       (while (>= (dec ,n) 0)
+         (let-when ,i (item ,n)
            ,@body)))))
 
 (import hashlib)
