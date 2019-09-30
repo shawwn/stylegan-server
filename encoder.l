@@ -235,13 +235,16 @@
 
 (from importlib import reload)
 
+(from IPython.display import display)
+
 (def generate-image (latent id)
   (print (cat id ": Generating image from " (repr latent)))
   (let-when img-result (scrap.system "python3" (list "generator.py") stdin: (to-bytes (obj-to-bytes latent)))
     (let img (image-from-bytes img-result)
       (print (cat id ": Generated image"))
       ;(r*.set (cat id "_faces:result" (image-to-bytes img)))
-      (print img))))
+      (print img)
+      (display img))))
 
 (def eval-image (url)
   (print (cat "Evaluating image " url))
