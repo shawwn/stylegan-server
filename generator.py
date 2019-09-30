@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 import tempfile
@@ -40,7 +41,7 @@ def load_latent(fname):
 
 if __name__ == '__main__':
     latent=np.array(json.loads(sys.stdin.read()))
-    print(repr(latent))
+    #print(repr(latent))
     img = generate_image(latent)
     with tempfile.TemporaryDirectory() as d:
         fname=os.path.join(d, "image.jpg")
