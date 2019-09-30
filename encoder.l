@@ -152,6 +152,8 @@
 
 (from glob import glob)
 
+(import align_images_ext)
+
 (def align-image (url)
   (with-temp-dir aligned-src-dir
     (with-temp-dir aligned-dst-dir
@@ -159,8 +161,9 @@
         (set img (img.convert "RGB"))
         (img.save (p aligned-src-dir "image.jpg") "JPEG")
         (scrap.system "python3" (list "align_images.py" aligned-src-dir aligned-dst-dir))
-        (let-when aligned-fname (hd (glob (p aligned-dst-dir "*")))
-          (PIL.Image.open aligned-fname))))))
+        (or (let-when aligned-fname (hd (glob (p aligned-dst-dir "*")))
+              (PIL.Image.open aligned-fname))
+            (align_images_ext.square_thumb img 1024))))))
 
 (def aligned-image (url)
   (let-when bs (get-url-key url 'aligned)
