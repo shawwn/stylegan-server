@@ -2,8 +2,8 @@ from PIL import Image, ExifTags
 
 def square_thumb(img, thumb_size):
   THUMB_SIZE = (thumb_size,thumb_size)
-  if img.getexif():
-    exif=dict((ExifTags.TAGS[k], v) for k, v in img.getexif().items() if k in ExifTags.TAGS)
+  if hasattr(img, "_getexif"):
+    exif=dict((ExifTags.TAGS[k], v) for k, v in img._getexif().items() if k in ExifTags.TAGS)
     if exif['Orientation'] == 3 :
       img=img.rotate(180, expand=True)
     elif exif['Orientation'] == 6 :
