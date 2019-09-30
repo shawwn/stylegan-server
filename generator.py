@@ -1,3 +1,7 @@
+import sys
+import json
+import tempfile
+
 import math
 import pickle
 import PIL.Image
@@ -35,7 +39,6 @@ def load_latent(fname):
     return np.expand_dims(rep, axis=0)
 
 if __name__ == '__main__':
-    import sys
     latent=np.array(json.loads(sys.argv[1]))
     print(repr(latent))
     img = generate_image(latent)
