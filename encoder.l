@@ -237,7 +237,7 @@
 
 (def generate-image (latent id)
   (print (cat id ": Generating image from " (repr latent)))
-  (let img-result (scrap.system "python3" (list "generator.py" (obj-to-bytes latent)))
+  (let img-result (scrap.system "python3" (list "generator.py") stdin: (obj-to-bytes latent))
     (print (cat id ": Generated image"))
     ;(r*.set (cat id "_faces:result" (image-to-bytes img)))
     (print img-result)))
