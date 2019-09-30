@@ -240,14 +240,22 @@
 
 (from IPython.display import display)
 
-(def generate-image (latent id)
-  (print (cat id ": Generating image from " (repr latent)))
+(def gen-image (latent)
   (let-when img-result (scrap.system "python3" (list "generator.py") stdin: (to-bytes (obj-to-bytes latent)))
-    (let img (image-from-bytes img-result)
-      (print (cat id ": Generated image"))
-      ;(r*.set (cat id "_faces:result" (image-to-bytes img)))
-      (print img)
-      (display img))))
+    (let-when img (image-from-bytes img-result)
+      img)))
+
+(def gen-image (latent)
+  (import generator)
+  (generator.generate-image latent))
+
+(def process-image (latent id)
+  (print (cat id ": Generating image from " (repr latent)))
+  (let img (gen-image latent)
+    (print (cat id ": Generated image"))
+    ;(r*.set (cat id "_faces:result" (image-to-bytes img)))
+    (print img)
+    (display img)))
 
 (def eval-image (url)
   (print (cat "Evaluating image " url))
@@ -258,7 +266,7 @@
   `(eval-image ',url))
 
 (def item-op (i)
-  `(generate-image ,(maptree idfn read-safe (item i 'op)) ',(item i 'id)))
+  `(process-image ,(maptree idfn read-safe (item i 'op)) ',(item i 'id)))
 
 (def read-op (i)
   (item-op i))
