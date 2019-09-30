@@ -241,7 +241,8 @@
 
 (def eval-image (url)
   (print (cat "Evaluating image " url))
-  (np.array ()))
+  ;(np.array ()))
+  (latent-image url))
 
 (mac image (url)
   `(eval-image ',url))
