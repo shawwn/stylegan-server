@@ -314,7 +314,7 @@ def cmd(cmd, stdin=None, stdout=subprocess.PIPE, stderr=None, shell=False):
     stdin=None
 
     if inputdata:
-        if type(inputdata) is str:
+        if type(inputdata) is str or type(inputdata) is bytes:
             stdin = subprocess.PIPE
         elif hasattr(inputdata, 'read'):
             stdin = subprocess.PIPE
