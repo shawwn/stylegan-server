@@ -255,7 +255,11 @@
     (print (cat id ": Generated image"))
     (print img)
     (r*.set (cat id "_faces:result") (image-to-bytes img))
-    (display (img.resize (list 256 256)))))
+    (let-when cb (item id 'callback)
+      (print (cat "Pinging " cb))
+      (urlbytes cb))
+    (display (img.resize (list 256 256)))
+    'ok))
 
 (def eval-image (url)
   (print (cat "Evaluating image " url))
