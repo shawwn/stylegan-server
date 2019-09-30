@@ -4,20 +4,6 @@
 (import redis)
 (from urllib.parse import urlparse)
 
-(mac + args
-  (if (none? args)
-      (list 'quote 0)
-      (one? args)
-      (hd args)
-    `((do +) ,@args)))
-
-(mac * args
-  (if (none? args)
-      (list 'quote 1)
-      (one? args)
-      (hd args)
-    `((do *) ,@args)))
-
 (mac errsafe (expr)
   `(on-err (fn (c) nil)
            (fn () ,expr)))
@@ -298,8 +284,8 @@
   (with r ()
     (for-each-item i (add r i))))
 
-(defconst ops* (obj))
-(defconst results* (obj))
+(defvar ops* (obj))
+(defvar results* (obj))
 
 (def process-item (i)
   (let (id (item i 'id)
