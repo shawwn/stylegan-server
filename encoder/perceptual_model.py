@@ -96,10 +96,10 @@ class PerceptualModel:
 
     def build_perceptual_model(self, generator):
         # Learning rate
-        global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name="global_step")
-        incremented_global_step = tf.assign_add(global_step, 1)
-        self._reset_global_step = tf.assign(global_step, 0)
-        self.learning_rate = tf.train.exponential_decay(self.lr, incremented_global_step,
+        self._global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name="global_step")
+        self._incremented_global_step = tf.assign_add(self._global_step, 1)
+        self._reset_global_step = tf.assign(self._global_step, 0)
+        self.learning_rate = tf.train.exponential_decay(self.lr, self._incremented_global_step,
                 self.decay_steps, self.decay_rate, staircase=True)
         self.sess.run([self._reset_global_step])
 
@@ -142,6 +142,13 @@ class PerceptualModel:
         # + L1 penalty on dlatent weights
         if self.l1_penalty is not None:
             self.loss += self.l1_penalty * 512 * tf.math.reduce_mean(tf.math.abs(generator.dlatent_variable-generator.get_dlatent_avg()))
+
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        vars_to_optimize = generator.dlatent_variable
+        self.vars_to_optimize = vars_to_optimize if isinstance(vars_to_optimize, list) else [vars_to_optimize]
+        self.min_op = self.optimizer.minimize(self.loss, var_list=[self.vars_to_optimize])
+        self.sess.run(tf.variables_initializer(self.optimizer.variables()))
+        self.sess.run(self._reset_global_step)
 
     def generate_face_mask(self, im):
         from imutils import face_utils
@@ -234,12 +241,7 @@ class PerceptualModel:
         self.assign_placeholder("ref_img", loaded_image)
 
     def optimize(self, vars_to_optimize, iterations=200):
-        vars_to_optimize = vars_to_optimize if isinstance(vars_to_optimize, list) else [vars_to_optimize]
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        min_op = optimizer.minimize(self.loss, var_list=[vars_to_optimize])
-        self.sess.run(tf.variables_initializer(optimizer.variables()))
-        self.sess.run(self._reset_global_step)
-        fetch_ops = [min_op, self.loss, self.learning_rate]
+        fetch_ops = [self.min_op, self.loss, self.learning_rate]
         for _ in range(iterations):
             _, loss, lr = self.sess.run(fetch_ops)
             yield {"loss":loss, "lr": lr}
