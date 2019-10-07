@@ -190,7 +190,7 @@ class PerceptualModel:
 
     def set_reference_image_data(self, loaded_image, images_list=None):
         if len(loaded_image.shape) < 4:
-            loaded_image = loaded_image.reshape([1] + loaded_image.shape)
+            loaded_image = loaded_image.reshape([1] + list(loaded_image.shape))
         self.loaded_image = loaded_image
         self.images_list = images_list
         self.image_features = None
