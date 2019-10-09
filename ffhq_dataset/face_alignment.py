@@ -40,8 +40,10 @@ def image_align(src_file, face_landmarks, output_size=1024, transform_size=4096,
         qsize = np.hypot(*x) * 2
 
         # Load in-the-wild image.
-        if isinstance(src_file, type(PIL.Image)):
+        if isinstance(src_file, PIL.Image.Image):
             img = src_file
+        elif isinstance(src_file, np.ndarray):
+            img = PIL.Image.fromarray(src_file)
         elif not os.path.isfile(src_file):
             print('\nCannot find source image. Please run "--wilds" before "--align".')
             return
