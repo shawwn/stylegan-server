@@ -100,13 +100,13 @@ class Generator:
             if (dlatents.shape != (self.batch_size, self.model_scale, 512)):
                 dlatents = np.vstack([dlatents, np.zeros((self.batch_size-dlatents.shape[0], self.model_scale, 512))])
             assert (dlatents.shape == (self.batch_size, self.model_scale, 512))
-        self.sess.run(tf.assign(self.dlatent_variable, dlatents))
+        self.dlatent_variable.load(dlatents, self.sess)
 
     def stochastic_clip_dlatents(self):
         self.sess.run(self.stochastic_clip_op)
 
     def get_dlatents(self):
-        return self.sess.run(self.dlatent_variable)
+        return self.dlatent_variable.eval(self.sess)
 
     def get_dlatent_avg(self):
         return self.dlatent_avg
