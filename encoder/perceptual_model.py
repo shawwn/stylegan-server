@@ -33,8 +33,9 @@ def unpack_bz2(src_path):
     return dst_path
 
 class PerceptualModel:
-    def __init__(self, args, batch_size=1, perc_model=None, sess=None):
+    def __init__(self, args, batch_size=1, perc_model=None, sess=None, optimizer=None):
         self.sess = tf.get_default_session() if sess is None else sess
+        self.optimizer = optimizer
         K.set_session(self.sess)
         self.epsilon = 0.00000001
         self.lr = args.lr
@@ -142,14 +143,17 @@ class PerceptualModel:
             self.loss += self.lpips_loss * tf.math.reduce_mean(self.compare_images(self.ref_weight * self.ref_img, self.ref_weight * self.generated_image))
         # + L1 penalty on dlatent weights
         if self.l1_penalty is not None:
-            self.loss += self.l1_penalty * 512 * tf.math.reduce_mean(tf.math.abs(self.generator.dlatent_variable-self.generator.get_dlatent_avg()))
+            self.loss += self.l1_penalty * 512 * tf.math.reduce_mean(tf.math.abs(self.generator.dlatent_variable[:,0]-self.generator.get_dlatent_avg()))
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         vars_to_optimize = self.generator.dlatent_variable
         self.vars_to_optimize = vars_to_optimize if isinstance(vars_to_optimize, list) else [vars_to_optimize]
-        self.min_op = self.optimizer.minimize(self.loss, var_list=[self.vars_to_optimize])
-        self.sess.run(tf.variables_initializer(self.optimizer.variables()))
-        self.sess.run(self._reset_global_step)
+        if self.optimizer is not None:
+            self.min_op = self.optimizer.minimize(self.loss, var_list=[self.vars_to_optimize])
+        else:
+            self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+            self.min_op = self.optimizer.minimize(self.loss, var_list=[self.vars_to_optimize])
+            self.sess.run(tf.variables_initializer(self.optimizer.variables()))
+            self.sess.run(self._reset_global_step)
 
     def generate_face_mask(self, im):
         from imutils import face_utils

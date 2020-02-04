@@ -85,6 +85,13 @@ def main():
     os.makedirs(args.dlatent_dir, exist_ok=True)
     os.makedirs(args.video_dir, exist_ok=True)
 
+    if not os.path.exists(args.load_resnet):
+        print("Downloading resnet model...")
+        os.makedirs(args.load_resnet, exist_ok=True)
+        with dnnlib.util.open_url('https://drive.google.com/uc?id=1aT59NFy9-bNyXjDuZOTMl0qX0jmZc6Zb', cache_dir=config.cache_dir) as f:
+            with open(args.load_resnet, 'wb') as dst:
+                dst.write(f.read())
+
     # Initialize generator and perceptual model
     tflib.init_tf()
     with dnnlib.util.open_url(args.model_url, cache_dir=config.cache_dir) as f:

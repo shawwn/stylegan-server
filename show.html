@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>WebSocket demo</title>
+        <!--<script src="https://unpkg.com/socket.io-client@2.2.0"></script>-->
+    </head>
+    <body>
+        <img id="view" />
+        <img id="view2" />
+        <img id="layer" />
+        <canvas id="canvas"></canvas>
+        <script>
+            let ws = new WebSocket("ws://phoenix.shawwn.com:5679/"),
+                messages = document.createElement('ul'),
+                img = document.getElementById('view'),
+                img2 = document.getElementById('view2');
+                img_paste = document.getElementById('layer');
+
+setTimeout(() => {
+  ws.send(`(do
+
+                    (defconst loops-per-run* ${window.loops_per_paste})
+                    (defconst iterations-per-loop* ${window.iterations_per_loop})
+
+                    (mac ado body
+                      \`((async fn () ,@body)))
+
+                    (mac awaiting (x)
+                      \`(ado (await ,x)))
+
+                    (mac tset args
+                      \`(do ,@(map (fn ((lh rh))
+                                    \`(thread-cell-set ,lh ,rh))
+                                  (pair args))))
+
+                    (mac tget (cell unset)
+                      \`(either (thread-cell-ref ,cell) ,(either unset 'nil)))
+
+                    (def bytes-to-image (bs shape)
+                      (let shape (if (is? shape) shape '(-1 512 3))
+                        (numpy-to-image (bytes-to-numpy bs shape))))
+
+                    (def data-to-aligned-image (raw)
+                      (let (data (bytes-to-numpy raw '(-1 512 3))
+                            img (numpy-to-image data)
+                            img (face-align img)
+                            img (resize-image img '(256 256)))
+                        img))
+
+                    (def zero-latent ()
+                      (np.zeros shape: (generator (.get_dlatents) .shape)))
+
+                    (def zero-image-data ()
+                      (np.zeros shape: '(256 256 3)))
+
+
+                    (defvar raw-image* (make-thread-cell nil true))
+                    (defvar aligned-image* (make-thread-cell nil true))
+                    (defvar target-image* (make-thread-cell nil true))
+                    (defvar encoding* (make-thread-cell (zero-image-data) true))
+                    (defvar dlatent* (make-thread-cell (zero-latent) true))
+                    (defvar generated* (make-thread-cell nil true))
+
+                    (def set-bytes (bs)
+                      (let-when img (bytes-to-image bs)
+                        (set-raw-image img)))
+
+                    (def set-raw-image (raw-img)
+                      (set raw-img (raw-img.convert "RGB"))
+                      (let-when aligned (face-align raw-img)
+                        (tset raw-image* raw-img)
+                        (set-aligned-image aligned)))
+
+                    (def set-image-from-data (data)
+                      (with-temp-dir tmp-image-dir
+                        (let fname (os.path.join tmp-image-dir "image.jpg")
+                          (with (open fname "wb") as f
+                            (f.write data))
+                          (let img (PIL.Image.open fname)
+                            (set-raw-image img)))))
+
+                    (def set-aligned-image (aligned-img)
+                      (tset aligned-image* aligned-img)
+                      (set-target aligned-img))
+
+                    (def set-target (img)
+                      (let (target-img (resize-image (numpy-to-image img) '(256 256))
+                            target-arr (image-to-numpy target-img))
+                        (tset target-image* target-img
+                              encoding* target-arr)))
+
+                    (def grab-target-data ()
+                      (tget encoding*))
+
+                    (def grab-target ()
+                      (numpy-to-image (grab-target-data)))
+
+                    (def set-latent (dl)
+                      (tset dlatent* dl))
+
+                    (def grab-latent (latent truncation spec)
+                      (let (latent (if (is? latent) latent (tget dlatent*))
+                            truncation (if (is? truncation) truncation 1.0)
+                            scale 1.0)
+                        (with final (* truncation latent)
+                          (step (weight name) (pair (or spec ()))
+                            (if (= name "scale")
+                                (set scale (+ 1.0 (* 0.5 weight)))
+                                (= name "celeb")
+                                (set scale (+ 0.5 (* 0.25 weight)))
+                              (inc final (* weight (getattr latents* name)))))
+                          (set final (* scale final)))))
+
+                    (def grab-image (latent truncation spec)
+                      (let latent (apply grab-latent latent truncation spec ())
+                        (generate-image latent)))
+
+                    (def set-generated (img)
+                      (tset generated* (if (is? img) img (grab-image))))
+
+                    (def grab-generated ()
+                      (tget generated*))
+
+                    (def reset-latent (latent)
+                      (set-latent latent)
+                      (set-generated))
+
+                    (def grab-estimate (img)
+                      (let img (if (is? img) img (grab-target))
+                        (estimate-dlatent img)))
+
+                    (def optimize-latent (iterations cur-latent ref-img-data)
+                      (let (n (either iterations iterations-per-loop*)
+                            im (if (is? ref-img-data) ref-img-data (grab-target-data))
+                            dl (if (is? cur-latent) cur-latent (grab-latent)))
+                        (sess.run perceptual_model._reset_global_step)
+                        (generator.set_dlatents dl)
+                        (perceptual_model.set_reference_image_data im)
+                        (for x in (perceptual_model.optimize iterations: n)
+                          (print (list x (current-socket)))
+                          (generator.stochastic_clip_dlatents))
+                        (generator.get_dlatents)))
+
+                    (def optimize-latent-new (iterations cur-latent ref-img-data global_step: global_step)
+                      (let (n (either iterations iterations-per-loop*)
+                            im (if (is? ref-img-data) ref-img-data (grab-target-data))
+                            dl (if (is? cur-latent) cur-latent (grab-latent)))
+                        (if (is? global_step)
+                            (upload-variable perceptual_model._global_step global_step)
+                          (sess.run perceptual_model._reset_global_step))
+                        (upload-latent dl)
+                        (perceptual_model.set_reference_image_data im)
+                        (for x in (perceptual_model.optimize iterations: n)
+                          (print (list x (current-socket)))
+                          (generator.stochastic_clip_dlatents))
+                        (fetch-latent)))
+
+                    (async def pause (secs)
+                      (let n (either secs 0.5)
+                        (await (asyncio.sleep n))))
+
+                    (async def optimize-1 args
+                      (let (new-latent (apply optimize-latent args)
+                            new-image (grab-image new-latent))
+                        (set-latent new-latent)
+                        (set-generated new-image)
+                        (await (send-image new-image))
+                        (await (pause))
+                        new-image))
+
+                    (async def optimize (loops)
+                      (let n (either loops loops-per-run*)
+                        (with img nil
+                          (for i n
+                            (set img (await (optimize-1)))))))
+
+                    (async def display-image (img)
+                      (await (send-image img))
+                      (await (pause))
+                      img)
+
+                    (async def set-data (data)
+                      (set-bytes data)
+                      (await (display-image (grab-target))))
+
+                    (async def set-estimate ()
+                      (set-latent (grab-estimate))
+                      (await (display-image (grab-image)))
+                      (grab-latent))
+
+                    (async def process (data)
+                       (when data
+                         (await (set-data data)))
+                       (await (optimize)))
+
+)`);
+                   
+}, 4000);
+            document.body.style.backgroundColor = 'black';
+            img_paste.style.position = 'absolute';
+            img_paste.style.left = '512px';
+            img.style.position = 'absolute';
+            img.style.opacity = 1;
+            img.style.transition = "opacity 0.25s ease-out";
+            img2.style.position = 'absolute';
+            img2.style.opacity = 0;
+            img2.style.transition = "opacity 0.25s ease-out";
+            pong = false;
+            pingpong = (url) => {
+              pong = !pong;
+              if (pong) {
+                img2.style.zIndex = -10;
+                img.style.zIndex = 10;
+                img2.style.transition = "opacity 0.0s ease-out";
+                img.style.transition = "opacity 0.6s ease-out";
+                img.style.opacity = 0;
+                img2.src = url;
+                img2.style.opacity = 1;
+              } else {
+                img.style.zIndex = -10;
+                img2.style.zIndex = 10;
+                img.style.transition = "opacity 0.0s ease-out";
+                img2.style.transition = "opacity 0.8s ease-out";
+                img2.style.opacity = 0;
+                img.src = url;
+                img.style.opacity = 1;
+              }
+            }
+
+// Converts canvas to an image
+function convertCanvasToImage(canvas) {
+	var image = new Image();
+	image.src = canvas.toDataURL("image/png");
+	return image;
+}
+
+// window.addEventListener('paste', ... or
+document.onpaste = function(event){
+  var items = (event.clipboardData || event.originalEvent.clipboardData).items;
+  console.log(JSON.stringify(items)); // will give you the mime types
+  for (index in items) {
+    var item = items[index];
+    if (item.kind === 'file') {
+      var blob = item.getAsFile();
+      //let url = window.URL.createObjectURL(blob);
+      //img_paste.src = url;
+      //console.log(url);
+      var reader = new FileReader();
+      reader.onload = function(event){
+        console.log(event.target.result)
+
+        canvas = document.getElementById("canvas");
+        ctx = canvas.getContext("2d");
+        let img = new Image();
+
+        img.onload = function () {
+
+            // set size proportional to image
+            canvas.width = 512;
+            canvas.height = canvas.width * (img.height / img.width);
+            //canvas.width = 256;
+            //canvas.height = 256;
+            canvas.style.display = "none";
+
+            if (false) {
+              // step 1 - resize to 50%
+              var oc = document.createElement('canvas'),
+                  octx = oc.getContext('2d');
+
+              oc.width = img.width * 0.5;
+              oc.height = img.height * 0.5;
+              octx.drawImage(img, 0, 0, oc.width, oc.height);
+
+              // step 2
+              octx.drawImage(oc, 0, 0, oc.width * 0.5, oc.height * 0.5);
+
+              // step 3, resize to final size
+              ctx.drawImage(oc, 0, 0, oc.width * 0.5, oc.height * 0.5, 0, 0, canvas.width, canvas.height);
+            } else {
+              ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, canvas.width, canvas.height);
+            }
+          
+            img_paste.src = canvas.toDataURL("image/png");
+          
+            idata = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            binary = new Uint8Array(idata.data.length / 4 * 3);
+            for (let i = 0; i < idata.data.length / 4; i++) {
+              binary[3*i + 0] = idata.data[4*i + 0];
+              binary[3*i + 1] = idata.data[4*i + 1];
+              binary[3*i + 2] = idata.data[4*i + 2];
+            }
+            ws.send(binary)
+        }
+        img.src = event.target.result;
+      }; // data url!
+      reader.readAsDataURL(blob);
+      break;
+    }
+  }
+}
+          
+window.loops_per_paste = 1
+window.iterations_per_loop = 5
+
+                s = x => ws.send(`(do ${x})`);
+                r = x => ws.send(`(let img (do ${x}) (if (image? img) (resize-image img '(512 512)) img))`);
+                m = x => ws.send(`(let img (do ${x}) (if (image? img) (resize-image img '(256 256)) img))`);
+                g = x => ws.send(`(let img (do ${x}) (if (image? img) (resize-image img '(128 128)) img))`);
+                a = x => ws.send(`(ado ${x})`)
+                aw = x => ws.send(`(awaiting ${x})`)
+
+            ws.onmessage = function (event) {
+                window.data = event.data;
+                console.log(window.data);
+                if (typeof event.data !== "string") {
+                  let url = window.URL.createObjectURL(event.data);
+                  //img.src = url;
+                  pingpong(url);
+                } else if (event.data.startsWith("data*.")) {
+                  window.msg = event.data;
+                  window.sent = `
+                  (do
+
+                    (defconst loops-per-run* ${window.loops_per_paste})
+                    (defconst iterations-per-loop* ${window.iterations_per_loop})
+
+                    (mac ado body
+                      \`((async fn () ,@body)))
+
+                    (mac awaiting (x)
+                      \`(ado (await ,x)))
+
+                    (mac tset args
+                      \`(do ,@(map (fn ((lh rh))
+                                    \`(thread-cell-set ,lh ,rh))
+                                  (pair args))))
+
+                    (mac tget (cell unset)
+                      \`(either (thread-cell-ref ,cell) ,(either unset 'nil)))
+
+                    (def bytes-to-image (bs shape)
+                      (let shape (if (is? shape) shape '(-1 512 3))
+                        (numpy-to-image (bytes-to-numpy bs shape))))
+
+                    (def data-to-aligned-image (raw)
+                      (let (data (bytes-to-numpy raw '(-1 512 3))
+                            img (numpy-to-image data)
+                            img (face-align img)
+                            img (resize-image img '(256 256)))
+                        img))
+
+                    (def zero-latent ()
+                      (np.zeros shape: (generator (.get_dlatents) .shape)))
+
+                    (def zero-image-data ()
+                      (np.zeros shape: '(256 256 3)))
+
+
+                    (defvar raw-image* (make-thread-cell nil true))
+                    (defvar aligned-image* (make-thread-cell nil true))
+                    (defvar target-image* (make-thread-cell nil true))
+                    (defvar encoding* (make-thread-cell (zero-image-data) true))
+                    (defvar dlatent* (make-thread-cell (zero-latent) true))
+                    (defvar generated* (make-thread-cell nil true))
+
+                    (def set-bytes (bs)
+                      (let-when img (bytes-to-image bs)
+                        (set-raw-image img)))
+
+                    (def set-raw-image (raw-img)
+                      (set raw-img (raw-img.convert "RGB"))
+                      (let-when aligned (face-align raw-img)
+                        (tset raw-image* raw-img)
+                        (set-aligned-image aligned)))
+
+                    (def set-image-from-data (data)
+                      (with-temp-dir tmp-image-dir
+                        (let fname (os.path.join tmp-image-dir "image.jpg")
+                          (with (open fname "wb") as f
+                            (f.write data))
+                          (let img (PIL.Image.open fname)
+                            (set-raw-image img)))))
+
+                    (def set-aligned-image (aligned-img)
+                      (tset aligned-image* aligned-img)
+                      (set-target aligned-img))
+
+                    (def set-target (img)
+                      (let (target-img (resize-image (numpy-to-image img) '(256 256))
+                            target-arr (image-to-numpy target-img))
+                        (tset target-image* target-img
+                              encoding* target-arr)))
+
+                    (def grab-target-data ()
+                      (tget encoding*))
+
+                    (def grab-target ()
+                      (numpy-to-image (grab-target-data)))
+
+                    (def set-latent (dl)
+                      (tset dlatent* dl))
+
+                    (def grab-latent (latent truncation spec)
+                      (let (latent (if (is? latent) latent (tget dlatent*))
+                            truncation (if (is? truncation) truncation 1.0)
+                            scale 1.0)
+                        (with final (* truncation latent)
+                          (step (weight name) (pair (or spec ()))
+                            (if (= name "scale")
+                                (set scale (+ 1.0 (* 0.5 weight)))
+                                (= name "celeb")
+                                (set scale (+ 0.5 (* 0.25 weight)))
+                              (inc final (* weight (getattr latents* name)))))
+                          (set final (* scale final)))))
+
+                    (def grab-image (latent truncation spec)
+                      (let latent (apply grab-latent latent truncation spec ())
+                        (generate-image latent)))
+
+                    (def set-generated (img)
+                      (tset generated* (if (is? img) img (grab-image))))
+
+                    (def grab-generated ()
+                      (tget generated*))
+
+                    (def reset-latent (latent)
+                      (set-latent latent)
+                      (set-generated))
+
+                    (def grab-estimate (img)
+                      (let img (if (is? img) img (grab-target))
+                        (estimate-dlatent img)))
+
+                    (def optimize-latent (iterations cur-latent ref-img-data)
+                      (let (n (either iterations iterations-per-loop*)
+                            im (if (is? ref-img-data) ref-img-data (grab-target-data))
+                            dl (if (is? cur-latent) cur-latent (grab-latent)))
+                        (sess.run perceptual_model._reset_global_step)
+                        (generator.set_dlatents dl)
+                        (perceptual_model.set_reference_image_data im)
+                        (for x in (perceptual_model.optimize iterations: n)
+                          (print (list x (current-socket)))
+                          (generator.stochastic_clip_dlatents))
+                        (generator.get_dlatents)))
+
+                    (def optimize-latent-new (iterations cur-latent ref-img-data global_step: global_step)
+                      (let (n (either iterations iterations-per-loop*)
+                            im (if (is? ref-img-data) ref-img-data (grab-target-data))
+                            dl (if (is? cur-latent) cur-latent (grab-latent)))
+                        (if (is? global_step)
+                            (upload-variable perceptual_model._global_step global_step)
+                          (sess.run perceptual_model._reset_global_step))
+                        (upload-latent dl)
+                        (perceptual_model.set_reference_image_data im)
+                        (for x in (perceptual_model.optimize iterations: n)
+                          (print (list x (current-socket)))
+                          (generator.stochastic_clip_dlatents))
+                        (fetch-latent)))
+
+                    (async def pause (secs)
+                      (let n (either secs 0.5)
+                        (await (asyncio.sleep n))))
+
+                    (async def optimize-1 args
+                      (let (new-latent (apply optimize-latent args)
+                            new-image (grab-image new-latent))
+                        (set-latent new-latent)
+                        (set-generated new-image)
+                        (await (send-image new-image))
+                        (await (pause))
+                        new-image))
+
+                    (async def optimize (loops)
+                      (let n (either loops loops-per-run*)
+                        (with img nil
+                          (for i n
+                            (set img (await (optimize-1)))))))
+
+                    (async def display-image (img)
+                      (await (send-image img))
+                      (await (pause))
+                      img)
+
+                    (async def set-data (data)
+                      (set-bytes data)
+                      (await (display-image (grab-target))))
+
+                    (async def set-estimate ()
+                      (set-latent (grab-estimate))
+                      (await (display-image (grab-image)))
+                      (grab-latent))
+
+                    (async def process (data)
+                       (when data
+                         (await (set-data data)))
+                       (await (optimize)))
+
+                    (defconst cum* ())
+
+                    (def apply-cum (dl)
+                      (global cum*)
+                      (if (is? dl) (cum! dl))
+                      (with latent (cum)
+                        (set-latent latent)
+                        (set prev-cum* cum*)
+                        (set cum* ())))
+
+                    (def cum args (apply grab-latent (if (none? cum*) (grab-latent) (/ (apply + cum*) (# cum*))) args))
+
+                    (def cum! (latent) (add cum* latent) (cum))
+
+                    (def lerp (a b t)
+                      (+ a (* t (- b a))))
+
+                    ;(generate-image (apply-cum (optimize-latent 1)))
+
+                    (ado
+                      (await (set-data ${window.msg}))
+                      ;(await (set-estimate))
+                      (await (process))
+                      
+                      )
+
+                    ;(let (raw ${window.msg}
+                    ;      dl nil)
+                    ;;(generator.reset_dlatents)
+                    ;;(set dl (generator.get_dlatents))
+                    ;;(perceptual_model.set_reference_image_data zz)
+                    ;(for i ${window.loops_per_paste}
+                    ;  (sess.run perceptual_model._reset_global_step)
+                    ;  (perceptual_model.set_reference_image_data (thread-cell-ref encoding*))
+                    ;  (generator.set_dlatents (thread-cell-ref dlatent*))
+                    ;  (for x in (perceptual_model.optimize iterations: ${window.iterations_per_loop})
+                    ;    (print (list x (current-socket))))
+                    ;  (thread-cell-set dlatent* (generator.get_dlatents))
+                    ;  (await (send-image (generate_image (thread-cell-ref dlatent*))))
+                    ;  (await (asyncio.sleep 0.1)))
+                    ;(generate_image (thread-cell-ref dlatent*)))
+                  )
+                  `;
+                  ws.send(window.sent);
+                  /*
+                  for (let i = 0; i < 20*2; i++) {
+                    ws.send(`(do (sess.run perceptual_model._reset_global_step)
+                                 (for x in (perceptual_model.optimize iterations: 2) (print x))
+                                 (generate_image (generator.get_dlatents)))`);
+                  }
+                  */
+                }
+
+                /*
+                onmsg = ws.onmessage; ws = new WebSocket("ws://phoenix.shawwn.com:5679/"); ws.onmessage = onmsg; setTimeout(() => { r`(ado (await (set-data data*.22)) (set-latent v0) '(await (set-estimate)) (grab-image))`; }, 1000);
+                */
+
+              /*
+                var messages = document.getElementsByTagName('ul')[0],
+                    message = document.createElement('li'),
+                    content = document.createTextNode(event.data);
+                message.appendChild(content);
+                messages.appendChild(message);
+                */
+            };
+            //document.body.appendChild(messages);
+        </script>
+    </body>
+</html>
