@@ -1,0 +1,80 @@
+xinl-hary-anxh-ebbo
+
+
+
+
+
+
+
+
+https://artbreeder.com/i?k=5ee29ea0c829433b25143ca6
+
+(import json)
+(set x (json.loads (file-to-bytes "5ee29ea0c829433b25143ca6.json")))
+(import base64)
+(set zz (np.array (list (np.frombuffer (base64.b64decode (at (get x 'base64_arrays) i)) dtype: np.float32) for i in (get x 'wlatent_idxs))))
+(set img (generate-image zz))
+(img.save "foo.png")
+
+
+for 512x512, CPU only:
+
+> (set img (timeit (generate-image zz)))
+time: 1.0080902576446533 seconds
+
+
+for 1024x1024, CPU only:
+
+> (timeit (generate-image default-dlatent*))
+time: 1.9324069023132324 seconds
+
+for 1024x1024, K80 GPU:
+
+['let', 'img', ['do', ['do', ['timeit', ['generate-image', 'latents*.trump']]]], ['if', ['image?', 'img'], ['resize-image', 'img', ['quote', [512, 512]]], 'img']]
+time: 1.7024345397949219 seconds
+
+
+
+https://geekflare.com/google-cloud-latency/
+
+
+oregon is best latency for asia + US + europe. haswell not available though.
+
+
+
+https://technology.condenast.com/story/handbag-brand-and-color-detection
+
+gaze estimation: https://twitter.com/roadrunning01/status/1186805649713156096
+
+
+
+
+
+
+This API key is currently active
+
+7 days remaining
+
+Detect, identify, analyze, organize, and tag faces in photos
+
+30,000 transactions, 20 per minute.
+
+Endpoint: https://westcentralus.api.cognitive.microsoft.com/face/v1.0
+
+Endpoint: https://westcentralus.api.cognitive.microsoft.com
+
+Key 1: db6749482d8d437fbfcb9abf50ee12ae
+
+Key 2: 8aa5dfdeaa544218ace928c30aaa849c
+
+
+
+
+
+
+
+
+https://software.intel.com/en-us/articles/face-it-the-artificially-intelligent-hairstylist
+
+
+http://shaverguru.com/finding-a-great-beard-style-for-your-face/
